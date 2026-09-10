@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: ai-language-rewrite
+    runtime: docker
+    plan: starter
+    healthCheckPath: /api/health
+    envVars:
+      - key: APP_HOSTED
+        value: "true"
+      - key: DATA_DIR
+        value: /data
+      - key: FILE_RETENTION_HOURS
+        value: "24"
+# Add a secret file named .env in the Render dashboard before the first deploy.
+# It is mounted at /etc/secrets/.env. See DEPLOYMENT.md.
+# Ephemeral storage is intentional; restart/redeploy clears files and jobs.
