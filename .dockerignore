@@ -1,0 +1,8 @@
+*
+!requirements.txt
+!app/
+!app/**
+!settings/
+!settings/humanizer-prompt.md
+app/__pycache__/
+app/**/*.pyc

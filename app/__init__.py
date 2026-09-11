@@ -1,0 +1,2 @@
+"""AI Language Rewrite application."""
+

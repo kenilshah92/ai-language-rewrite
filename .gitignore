@@ -1,0 +1,14 @@
+.DS_Store
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+*.zip
+uploads/
+output/
+tmp/
+
+.codex/
+.env.*
+!.env.example
