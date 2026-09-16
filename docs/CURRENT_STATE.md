@@ -1,5 +1,12 @@
 # Current state
 
+## 2026-09-16: final PDF insertion overflow fix
+
+Reproduced the Gully Labs failure using saved model proposals: the previous renderer raised `Unexpected overflow while writing p2-b30`. Fit testing rounded the accepted font size before final insertion. The renderer now uses the exact tested size. If a final insertion still overflows, it discards the tentative render and rebuilds from the original without that replacement, reporting `skipped_final_overflow`; no additional model calls are made. Each retry removes failed blocks, so retries are bounded.
+
+Validation: 25 tests and the PDF smoke check pass. Replaying the saved Gully Labs proposals through the normal pipeline completes with 102 rewritten blocks and 21 protected complex-layout blocks. All 10 page geometries, images and vector drawings match; accepted replacement text is present. This replay uses no paid API request. Hosted logs were not available during diagnosis, so the exact hosted error is not independently confirmed. Deployment and a fresh hosted upload remain separate checks.
+
+
 Inspection date: 2026-09-11. Application version: 0.3.0. This is a documentation/source-organization pass; application code and prompt are unchanged. Deployment packaging now builds directly from source, and render.yaml selects the free tier.
 
 ## Working implementation

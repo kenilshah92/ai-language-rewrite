@@ -24,7 +24,7 @@ PDF rewriting separates generation from fit checks and final rendering. Up to tw
 
 PDF page count, dimensions, images, vector graphics, colors and element positions are intended invariants. The renderer uses text-only redaction flags and fit checks, and runtime validation compares page count and dimensions. It does not perform a complete visual comparison on every job. Fonts fall back to Base14 if extraction fails; size can shrink to the configured floor (default 85%). The text rectangle receives a bottom allowance of 0.45 times the original font size. These are current implementation compromises, not a promise of exact typography.
 
-Mixed-style and disconnected/non-left-aligned multiline blocks are conservatively protected. Overlap checks and missing-glyph checks also reject changes. Known overflow stays original and is reported; an unexpected insertion overflow fails the job. PDF layout needs human review, especially with complex diagrams or tight spacing.
+Mixed-style and disconnected/non-left-aligned multiline blocks are conservatively protected. Overlap checks and missing-glyph checks also reject changes. Known overflow stays original and is reported; an unexpected insertion overflow causes a fresh render from the original with that block kept unchanged and reported. PDF layout needs human review, especially with complex diagrams or tight spacing.
 
 DOCX preserves style definitions and package structure, not fixed pagination. Fields, review markup, content controls, text boxes, paragraphs containing artwork, hyperlinks and fixed-height rows are protected by conservative rules. Shorter text can still move flow-positioned objects. TXT preserves line structure but can change spacing inside a rewritten line.
 

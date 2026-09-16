@@ -134,3 +134,48 @@ def test_rewrite_preserves_numbers(tmp_path):
     assert results[0].status == 'skipped_numbers'
     with fitz.open(output) as document:
         assert '9-11' in document[0].get_text()
+
+
+def test_final_overflow_restores_original_and_keeps_other_rewrites(tmp_path, monkeypatch):
+    from app.pdf_rewriter import prepare_pdf_blocks
+    source = tmp_path / 'source.pdf'
+    output = tmp_path / 'result.pdf'
+    with fitz.open() as doc:
+        page = doc.new_page(width=600, height=400)
+        page.draw_rect(fitz.Rect(20, 20, 550, 300), color=(1, 0, 0))
+        page.insert_text((50, 80), 'Original first paragraph', fontsize=12)
+        page.insert_text((50, 180), 'Original second paragraph', fontsize=12)
+        doc.save(source)
+    with fitz.open(source) as doc:
+        blocks = prepare_pdf_blocks(doc)
+    replacements = {blocks[0].id: 'First edit', blocks[1].id: 'Second edit'}
+    insert = fitz.Page.insert_textbox
+    def fail_first(page, rect, text, **kwargs):
+        if text == 'First edit':
+            return -1  # Preflight Shape succeeds; final Page insertion fails.
+        return insert(page, rect, text, **kwargs)
+    monkeypatch.setattr(fitz.Page, 'insert_textbox', fail_first)
+    results = rewrite_pdf(source, output, replacements, prepared_blocks=blocks)
+    assert {r.block_id: r.status for r in results} == {
+        blocks[0].id: 'skipped_final_overflow', blocks[1].id: 'rewritten'}
+    with fitz.open(source) as original, fitz.open(output) as result:
+        text = result[0].get_text()
+        assert 'Original first paragraph' in text and 'Second edit' in text
+        assert 'Original second paragraph' not in text
+        clip = fitz.Rect(40, 55, 300, 100)
+        assert original[0].get_pixmap(clip=clip).samples == result[0].get_pixmap(clip=clip).samples
+        assert len(result) == 1 and result[0].rect == original[0].rect
+
+
+def test_fit_size_is_not_rounded_after_validation():
+    from app.pdf_rewriter import _largest_fitting_size
+    from app.models import TextBlock
+    size = 12.003
+    block = TextBlock('b', 0, fitz.Rect(0, 0, 200, 50), 'Text', 'Helvetica', size, (0, 0, 0))
+    class Shape:
+        def insert_textbox(self, *args, **kwargs):
+            return 0
+    class Page:
+        def new_shape(self):
+            return Shape()
+    assert _largest_fitting_size(Page(), block, 'Text', 'helv', .85) == size

@@ -47,7 +47,7 @@ The first proposal set is dry-run checked. Empty text, numeric/URL/email/citatio
 
 At most two repair calls target empty, preservation, numeric, glyph and overflow failures. Overflow repair asks for 80% of the proposed length. Glyph repair supplies available characters. Overlap and complex-layout skips are not repaired. Optional repair failures retain usable proposals and add a report warning. Identical repair proposals terminate early.
 
-Final rendering reopens the original, redacts accepted text regions while preserving images/vector graphics via PyMuPDF flags, reloads pages, restores embedded fonts, and inserts accepted text once. Page count/dimensions are validated afterward. The application does not raster-compare every result.
+Final rendering reopens the original, redacts accepted text regions while preserving images/vector graphics via PyMuPDF flags, reloads pages, restores embedded fonts, and inserts accepted text once. The exact tested font size is retained without rounding. If final insertion overflows, the tentative render is discarded and reconstruction restarts from the original with the failed replacements excluded and reported as skipped_final_overflow. No new AI request is needed; each retry removes at least one replacement. Page count/dimensions are validated afterward. The application does not raster-compare every result.
 
 PDF reports include original/final text, status/reason, initial proposal, checked attempts, page/rectangle, model, response IDs, prompt snapshot/hash, source hash, repair errors and rewritten-source-character coverage. Coverage counts all source characters in changed blocks; it is not word edit distance. Audit history records checked changes and may omit a no-op repair response.
 

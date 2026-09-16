@@ -148,42 +148,50 @@ def rewrite_pdf(
         document.close()
         return sorted(results, key=lambda result: result.block_id)
 
-    for block, _, _, _, _ in planned:
-        page = document[block.page_index]
-        page.add_redact_annot(block.rect, fill=None)
-    for page_index in range(document.page_count):
-        page = document[page_index]
-        page.apply_redactions(
-            images=fitz.PDF_REDACT_IMAGE_NONE,
-            graphics=fitz.PDF_REDACT_LINE_ART_NONE,
-            text=fitz.PDF_REDACT_TEXT_REMOVE,
-        )
-        document.reload_page(page)
-
-    for block, replacement, size, font_alias, font_buffer in planned:
-        page = document[block.page_index]
-        # Redaction can discard unused font resources. Restore before writing.
-        if font_buffer:
-            page.insert_font(fontname=font_alias, fontbuffer=font_buffer)
-        remaining = page.insert_textbox(
-            _text_rect(block),
-            replacement,
-            fontname=font_alias,
-            fontsize=size,
-            color=block.color,
-            align=block.align,
-            lineheight=block.line_height,
-            overlay=True,
-        )
-        if remaining < -0.01:
-            document.close()
-            raise RuntimeError(f"Unexpected overflow while writing {block.id}")
-        results.append(RewriteResult(block.id, block.text, replacement, "rewritten"))
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    document.save(output_path, garbage=4, deflate=True)
     document.close()
+    # Final insertion can disagree with preflight (font resources and floating
+    # point metrics). Retry from the source, never from a partially redacted PDF.
+    while True:
+        document = fitz.open(input_path)
+        failed = []
+        try:
+            for block, _, _, _, _ in planned:
+                document[block.page_index].add_redact_annot(block.rect, fill=None)
+            for page_index in sorted({b.page_index for b, *_ in planned}):
+                page = document[page_index]
+                page.apply_redactions(
+                    images=fitz.PDF_REDACT_IMAGE_NONE,
+                    graphics=fitz.PDF_REDACT_LINE_ART_NONE,
+                    text=fitz.PDF_REDACT_TEXT_REMOVE,
+                )
+                document.reload_page(page)
+            for block, replacement, size, font_alias, font_buffer in planned:
+                page = document[block.page_index]
+                if font_buffer:
+                    page.insert_font(fontname=font_alias, fontbuffer=font_buffer)
+                remaining = page.insert_textbox(
+                    _text_rect(block), replacement, fontname=font_alias,
+                    fontsize=size, color=block.color, align=block.align,
+                    lineheight=block.line_height, overlay=True,
+                )
+                if remaining < -0.01:
+                    failed.append(block)
+            if not failed:
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                document.save(output_path, garbage=4, deflate=True)
+        finally:
+            document.close()
+        if not failed:
+            break
+        failed_ids = {b.id for b in failed}
+        results.extend(RewriteResult(
+            b.id, b.text, b.text, "skipped_final_overflow",
+            "Final insertion did not fit; original text retained without repeating the AI request.",
+        ) for b in failed)
+        # Strictly decreases each retry, so even repeated failures are bounded.
+        planned = [item for item in planned if item[0].id not in failed_ids]
 
+    results.extend(RewriteResult(b.id, b.text, text, "rewritten") for b, text, _, _, _ in planned)
     _validate_structure(input_path, output_path, original_page_sizes)
     return sorted(results, key=lambda result: result.block_id)
 
@@ -331,7 +339,7 @@ def _largest_fitting_size(
             lineheight=block.line_height,
         )
         if remaining >= -0.01:
-            return round(size, 2)
+            return size  # Render with the exact size that passed the fit check.
         size -= max(0.25, block.font_size * 0.025)
     return None
 
