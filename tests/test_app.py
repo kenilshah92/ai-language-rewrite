@@ -54,12 +54,12 @@ def test_async_txt_rewrite_and_download(tmp_path, monkeypatch):
 def test_configuration_orders_the_default_model_first(monkeypatch):
     config = replace(
         main.settings,
-        model='gpt-5.6-terra',
-        allowed_models=('gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.6-sol', 'gpt-6-astra'),
+        model='gpt-5.6-luna',
+        allowed_models=('gpt-5.6-luna', 'gpt-5.6-terra', 'gpt-5.6-sol', 'gpt-6-astra'),
     )
     monkeypatch.setattr(main, 'settings', config)
     response = client.get('/api/config')
-    assert response.json()['model'] == 'gpt-5.6-terra'
+    assert response.json()['model'] == 'gpt-5.6-luna'
     assert response.json()['models'] == list(config.allowed_models)
 
 
