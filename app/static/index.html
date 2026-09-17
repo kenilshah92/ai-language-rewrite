@@ -51,6 +51,10 @@
       <button type="button" class="mode" data-mode="text" role="tab" aria-selected="false">Text</button>
     </div>
 
+    <label for="model">Rewrite model</label>
+    <select id="model" name="model" disabled><option>Loading models…</option></select>
+    <small>Your choice is used for both file and text rewrites, and stays selected when you switch modes.</small>
+
     <section id="fileMode" aria-labelledby="fileHeading">
       <h2 id="fileHeading">Rewrite a file</h2>
       <form id="fileForm">
@@ -59,9 +63,6 @@
           <input id="file" name="file" type="file" accept=".pdf,.docx,.txt" multiple required>
           <small id="privacy">Loading storage settings…</small>
         </div>
-        <label for="fileModel">Rewrite model</label>
-        <select id="fileModel" name="model" disabled><option>Loading models…</option></select>
-        <small>Model choice affects writing quality, processing time, and API cost.</small>
         <button id="fileSubmit" class="primary" type="submit" disabled>Rewrite selected files</button>
       </form>
     </section>
@@ -73,9 +74,6 @@
         <label for="textInput">Text to rewrite</label>
         <textarea id="textInput" rows="12" maxlength="20000" placeholder="Paste a paragraph, email, message, or slide copy here…" required></textarea>
         <small><span id="textCount">0</span> / 20,000 characters</small>
-        <label for="textModel">Rewrite model</label>
-        <select id="textModel" name="model" disabled><option>Loading models…</option></select>
-        <small>Model choice affects writing quality, processing time, and API cost.</small>
         <button id="textSubmit" class="primary" type="submit" disabled>Rewrite text</button>
       </form>
 
@@ -107,8 +105,7 @@
     const fileForm = document.querySelector('#fileForm');
     const textForm = document.querySelector('#textForm');
     const fileInput = document.querySelector('#file');
-    const fileModel = document.querySelector('#fileModel');
-    const textModel = document.querySelector('#textModel');
+    const model = document.querySelector('#model');
     const fileSubmit = document.querySelector('#fileSubmit');
     const textSubmit = document.querySelector('#textSubmit');
     const textInput = document.querySelector('#textInput');
@@ -121,7 +118,7 @@
     let config;
 
     function updateTextSubmit() {
-      textSubmit.disabled = !textInput.value.trim() || textModel.disabled;
+      textSubmit.disabled = !textInput.value.trim() || model.disabled;
     }
 
     function setMode(name) {
@@ -211,7 +208,7 @@
             if (file.size > config.max_upload_mb * 1024 * 1024) throw new Error(`File exceeds ${config.max_upload_mb} MB.`);
             const body = new FormData();
             body.append('file', file);
-            body.append('model', fileModel.value);
+            body.append('model', model.value);
             const job = await jsonResponse(await fetch('/api/rewrite', { method: 'POST', body }));
             await poll(job.status_url, view);
           } catch (error) {
@@ -229,14 +226,14 @@
       if (!textInput.value.trim()) return;
       textSubmit.disabled = true;
       textInput.disabled = true;
-      textModel.disabled = true;
+      model.disabled = true;
       textResult.hidden = true;
       textError.hidden = true;
       textProgress.hidden = false;
       try {
         const body = new FormData();
         body.append('text', textInput.value);
-        body.append('model', textModel.value);
+        body.append('model', model.value);
         const data = await jsonResponse(await fetch('/api/rewrite-text', { method: 'POST', body }));
         rewrittenText.value = data.rewritten;
         textResult.hidden = false;
@@ -246,7 +243,7 @@
       } finally {
         textProgress.hidden = true;
         textInput.disabled = false;
-        textModel.disabled = false;
+        model.disabled = false;
         updateTextSubmit();
       }
     });
@@ -275,10 +272,10 @@
     function addModels(select, models, selectedModel) {
       select.replaceChildren();
       const labels = {
-        'gpt-6-astra': 'GPT-6 Astra · Most capable',
+        'gpt-5.6-terra': 'GPT-5.6 Terra · Recommended balance',
+        'gpt-5.6-luna': 'GPT-5.6 Luna · Lowest cost for routine work',
         'gpt-5.6-sol': 'GPT-5.6 Sol · Complex professional work',
-        'gpt-5.6-terra': 'GPT-5.6 Terra · Balanced capability and cost',
-        'gpt-5.6-luna': 'GPT-5.6 Luna · Lowest cost'
+        'gpt-6-astra': 'GPT-6 Astra · Highest capability and cost'
       };
       for (const model of models) {
         const option = new Option(labels[model] || model, model);
@@ -291,8 +288,7 @@
     (async () => {
       try {
         config = await jsonResponse(await fetch('/api/config'));
-        addModels(fileModel, config.models, config.model);
-        addModels(textModel, config.models, config.model);
+        addModels(model, config.models, config.model);
         fileSubmit.disabled = false;
         updateTextSubmit();
         document.querySelector('#privacy').textContent = (config.hosted

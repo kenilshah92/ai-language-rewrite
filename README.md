@@ -19,7 +19,7 @@ Add your API key to `.env`. Never commit it. Start with:
 uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-Open http://127.0.0.1:8000. Select one or more files and a configured model. The app processes jobs in the background and offers a rewritten document plus a JSON report. The default model is `gpt-6-astra`; account API access is required. The selector includes Astra, GPT-5.6 Sol, GPT-5.6 Terra, and GPT-5.6 Luna by default. Add permitted IDs to `ALLOWED_MODELS` in `.env` to expose alternatives, then restart.
+Open http://127.0.0.1:8000. Select one or more files and a configured model. The app processes jobs in the background and offers a rewritten document plus a JSON report. The default model is `gpt-5.6-terra`; account API access is required. The shared selector keeps its choice while switching between file and text rewrites. It orders GPT-5.6 Terra, GPT-5.6 Luna, GPT-5.6 Sol, then Astra by default. Add permitted IDs to `ALLOWED_MODELS` in `.env` to expose alternatives, then restart.
 
 ## Supported formats and preservation
 

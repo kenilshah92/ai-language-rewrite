@@ -17,14 +17,14 @@ class Settings:
     prompt_path: Path = ROOT / 'settings' / 'humanizer-prompt.md'
     upload_dir: Path = DATA_ROOT / 'uploads'
     output_dir: Path = DATA_ROOT / 'output'
-    model: str = os.getenv('OPENAI_MODEL', 'gpt-6-astra')
+    model: str = os.getenv('OPENAI_MODEL', 'gpt-5.6-terra')
     max_upload_mb: int = int(os.getenv('MAX_UPLOAD_MB', '50'))
     min_font_scale: float = float(os.getenv('MIN_FONT_SCALE', '0.85'))
     hosted: bool = os.getenv('APP_HOSTED', 'false').lower() == 'true'
     username: str = os.getenv('APP_USERNAME', '')
     password: str = os.getenv('APP_PASSWORD', '')
     retention_hours: int = int(os.getenv('FILE_RETENTION_HOURS', '24' if os.getenv('APP_HOSTED', 'false').lower() == 'true' else '0'))
-    allowed_models: tuple[str, ...] = tuple(x.strip() for x in os.getenv('ALLOWED_MODELS', 'gpt-6-astra,gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna').split(',') if x.strip())
+    allowed_models: tuple[str, ...] = tuple(x.strip() for x in os.getenv('ALLOWED_MODELS', 'gpt-5.6-terra,gpt-5.6-luna,gpt-5.6-sol,gpt-6-astra').split(',') if x.strip())
 
     def ensure_directories(self) -> None:
         self.upload_dir.mkdir(parents=True, exist_ok=True)

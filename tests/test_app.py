@@ -18,6 +18,9 @@ def test_home_page_loads():
     assert 'Keep the document.' in response.text
     assert '.docx' in response.text
     assert '.progress[hidden], .result[hidden] { display: none; }' in response.text
+    assert 'id="model"' in response.text
+    assert 'fileModel' not in response.text
+    assert 'textModel' not in response.text
 
 
 def test_private_routes_require_authentication(monkeypatch):
@@ -46,6 +49,18 @@ def test_async_txt_rewrite_and_download(tmp_path, monkeypatch):
     assert job['status'] == 'complete', job
     assert client.get(job['download_url']).content == b'Clear text\r\n'
     assert client.get(job['report_url']).json()['model'] == config.model
+
+
+def test_configuration_orders_the_default_model_first(monkeypatch):
+    config = replace(
+        main.settings,
+        model='gpt-5.6-terra',
+        allowed_models=('gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.6-sol', 'gpt-6-astra'),
+    )
+    monkeypatch.setattr(main, 'settings', config)
+    response = client.get('/api/config')
+    assert response.json()['model'] == 'gpt-5.6-terra'
+    assert response.json()['models'] == list(config.allowed_models)
 
 
 def test_rewrite_text_returns_an_editable_rewrite(monkeypatch):
