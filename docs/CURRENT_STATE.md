@@ -1,5 +1,11 @@
 # Current state
 
+## 2026-09-17: free-text rewrite mode and clearer rewrite flow
+
+The interface now provides a compact Files/Text mode switch. Each mode owns one clear primary action: **Rewrite selected files** or **Rewrite text**. Text mode accepts up to 20,000 characters, sends the selected model to `POST /api/rewrite-text`, shows an in-progress spinner and status while the request runs, shows errors in context, and returns an editable result with copy and reset controls. File processing retains its existing per-file upload, queue, processing and completion status panels.
+
+Validation: `python -m pytest -q -p no:cacheprovider` — **27 passed**. `PYTHONPATH=. python scripts/smoke_test.py` is run as part of this release check. This commit is intended for Render auto-deploy; a fresh hosted text rewrite remains a manual acceptance check after the deployment reaches Live.
+
 ## 2026-09-16: final PDF insertion overflow fix
 
 Reproduced the Gully Labs failure using saved model proposals: the previous renderer raised `Unexpected overflow while writing p2-b30`. Fit testing rounded the accepted font size before final insertion. The renderer now uses the exact tested size. If a final insertion still overflows, it discards the tentative render and rebuilds from the original without that replacement, reporting `skipped_final_overflow`; no additional model calls are made. Each retry removes failed blocks, so retries are bounded.

@@ -47,6 +47,29 @@ def test_async_txt_rewrite_and_download(tmp_path, monkeypatch):
     assert client.get(job['report_url']).json()['model'] == config.model
 
 
+def test_rewrite_text_returns_an_editable_rewrite(monkeypatch):
+    monkeypatch.setattr(
+        main.Humanizer,
+        'rewrite',
+        lambda self, blocks: {block.id: 'Clearer wording' for block in blocks},
+    )
+    response = client.post(
+        '/api/rewrite-text',
+        data={'text': 'Original wording', 'model': main.settings.model},
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        'original': 'Original wording',
+        'rewritten': 'Clearer wording',
+        'model': main.settings.model,
+    }
+
+
+def test_rewrite_text_rejects_empty_text_and_unknown_model():
+    assert client.post('/api/rewrite-text', data={'text': '   '}).status_code == 400
+    assert client.post('/api/rewrite-text', data={'text': 'Text', 'model': 'unconfigured-model'}).status_code == 400
+
+
 def test_rejects_unknown_format_model_and_cross_site_upload():
     assert client.post('/api/rewrite', files={'file': ('old.doc', b'content')}).status_code == 400
     assert client.post('/api/rewrite', files={'file': ('ok.txt', b'content')}, data={'model': 'unconfigured-model'}).status_code == 400

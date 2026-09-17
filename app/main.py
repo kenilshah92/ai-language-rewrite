@@ -22,7 +22,7 @@ from app.config import settings
 from app.humanizer import Humanizer, HumanizerError
 from app.pdf_pipeline import process_pdf
 from app.pdf_rewriter import extract_text_blocks, report_to_dict, rewrite_pdf
-from app.document_rewriter import extract_docx, extract_txt, rewrite_docx, rewrite_txt
+from app.document_rewriter import ContentBlock, extract_docx, extract_txt, rewrite_docx, rewrite_txt
 
 security = HTTPBasic(auto_error=False)
 jobs: dict[str, dict] = {}
@@ -179,6 +179,27 @@ async def rewrite(file: UploadFile = File(...), model: str = Form('')):
     finally:
         await file.close()
     return {'job_id': job_id, 'status': 'queued', 'status_url': f'/api/jobs/{job_id}'}
+
+
+@app.post('/api/rewrite-text', dependencies=[Depends(authenticate)])
+async def rewrite_text(text: str = Form(''), model: str = Form('')):
+    """Rewrite free-form text without creating a document artifact."""
+    text = text.strip()
+    if not text:
+        raise HTTPException(400, 'Enter text to rewrite.')
+    selected = model or settings.model
+    if selected not in (settings.model, *settings.allowed_models):
+        raise HTTPException(400, 'Choose a configured model.')
+    block = ContentBlock('free-text', text)
+    try:
+        rewritten = await asyncio.to_thread(
+            lambda: Humanizer(settings.prompt_path, selected).rewrite([block])[block.id]
+        )
+    except OpenAIError:
+        raise HTTPException(502, 'OpenAI request failed. Check model access and connection, then retry.')
+    except HumanizerError as exc:
+        raise HTTPException(502, str(exc))
+    return {'original': text, 'rewritten': rewritten, 'model': selected}
 
 
 @app.get('/api/jobs/{job_id}', dependencies=[Depends(authenticate)])

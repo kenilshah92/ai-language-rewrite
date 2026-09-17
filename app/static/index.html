@@ -1,34 +1,306 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AI Language Rewrite</title>
-<style>
-:root{color-scheme:light;font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;color:#182019;background:#f3f1ec}*{box-sizing:border-box}body{margin:0;padding:40px 16px}main{max-width:760px;margin:auto;background:#fff;border:1px solid #ddd8cf;border-radius:22px;padding:36px;box-shadow:0 18px 60px #1c221c14}.eyebrow{color:#4d6653;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}h1{font-size:clamp(32px,7vw,52px);line-height:1.05;letter-spacing:-.035em;margin:12px 0}p,li{color:#59615a;line-height:1.6}.drop{border:1.5px dashed #98a79a;border-radius:16px;padding:24px;background:#f8faf7;margin:24px 0}input,select{max-width:100%;font:inherit}label{display:block;font-weight:600;margin:12px 0 8px}select{width:100%;padding:12px;border:1px solid #c9cfc8;border-radius:8px;background:#fff}button{width:100%;margin-top:20px;padding:14px;border:0;border-radius:12px;background:#183d24;color:#fff;font:inherit;font-weight:700;cursor:pointer}button:disabled{opacity:.55;cursor:wait}small{display:block;color:#67716a;line-height:1.5;margin-top:10px}.result{margin-top:16px;padding:18px;background:#edf4ee;border-radius:12px;overflow-wrap:anywhere}.error{background:#fff0eb}a{color:#183d24;font-weight:600}details{margin-top:24px;border-top:1px solid #e2e5de;padding-top:18px}summary{cursor:pointer;font-weight:600}#results{margin-top:24px}h2{font-size:16px;margin:0 0 8px}
-</style></head>
-<body><main>
-<div class="eyebrow">AI Language Rewrite</div>
-<h1>Rewrite the words.<br>Keep the document.</h1>
-<p>Clearer writing using your editing guidelines. Upload PDFs, Word documents, or plain text. Changes that cannot be applied safely stay original and appear in the report.</p>
-<form id="form">
-<div class="drop"><label for="file">Choose documents</label><input id="file" name="file" type="file" accept=".pdf,.docx,.txt" multiple required><small id="privacy">Loading storage settings…</small></div>
-<label for="model">Rewrite model</label><select id="model" name="model" disabled><option>Loading models…</option></select>
-<small>Available models are configured by the app owner. Model choice affects writing quality, processing time, and API cost.</small>
-<button id="submit" type="submit" disabled>Rewrite documents</button>
-</form>
-<div id="results" aria-live="polite"></div>
-<details><summary>What stays the same</summary><ul>
-<li><strong>PDF:</strong> page dimensions, images, and graphics. Wide paragraphs reflow within their original area. Unsupported fonts, overlaps, and text that does not fit are skipped. Scanned PDFs need a separate OCR workflow.</li>
-<li><strong>Word (.docx):</strong> font and style settings, tables, links, and image files. Complex fields, review markup, text boxes, and fixed-height rows stay original. Word may repaginate after edits; review the result in Word.</li>
-<li><strong>Plain text (.txt):</strong> UTF-8 encoding, blank lines, line endings, and indentation. There are no fonts or images in this format.</li>
-</ul><p>The editing rules include guidance from <a href="https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing" target="_blank" rel="noopener noreferrer">Wikipedia’s Signs of AI writing</a>. These are writing-quality guidelines, not an AI-detector guarantee. Legacy .doc files and other formats are not supported yet.</p></details>
-</main>
-<script>
-const form=document.querySelector('#form'),button=document.querySelector('#submit'),results=document.querySelector('#results'),select=document.querySelector('#model');
-let config;
-function panel(name){const section=document.createElement('section');section.className='result';const title=document.createElement('h2');title.textContent=name;const status=document.createElement('div');status.textContent='Uploading…';section.append(title,status);results.append(section);return {section,status};}
-async function jsonResponse(response){let data;try{data=await response.json()}catch{throw new Error('The server did not return a valid response. Please retry.')}if(!response.ok)throw new Error(typeof data.detail==='string'?data.detail:'Request failed.');return data;}
-async function poll(url,view){let errors=0;for(;;){await new Promise(resolve=>setTimeout(resolve,2000));let data;try{data=await jsonResponse(await fetch(url));errors=0}catch(error){if(++errors>=3)throw new Error('Connection lost. The rewrite may still be running. Keep this job URL to check it: '+url);view.status.textContent='Reconnecting…';continue;}if(data.status==='failed')throw new Error(data.error);if(data.status==='complete'){const rewritten=data.summary.rewritten||0,skipped=Object.entries(data.summary).filter(([key])=>key.startsWith('skipped_')).reduce((sum,[,n])=>sum+n,0);view.status.textContent=`${rewritten} blocks rewritten; ${skipped} kept original for preservation. `;for(const [label,href] of [['Download document',data.download_url],['View report',data.report_url]]){const a=document.createElement('a');a.textContent=label;a.href=href;view.status.append(a,document.createTextNode('  '));}if(data.layout_note){const note=document.createElement('small');note.textContent=data.layout_note;view.section.append(note);}return;}view.status.textContent=data.status==='queued'?'Queued. Waiting for an available worker…':'Rewriting and checking the document. This can take several minutes…';}}
-form.addEventListener('submit',async event=>{event.preventDefault();button.disabled=true;const files=[...document.querySelector('#file').files];try{await Promise.all(files.map(async file=>{const view=panel(file.name);try{if(file.size>config.max_upload_mb*1024*1024)throw new Error(`File exceeds ${config.max_upload_mb} MB.`);const body=new FormData();body.append('file',file);body.append('model',select.value);const job=await jsonResponse(await fetch('/api/rewrite',{method:'POST',body}));await poll(job.status_url,view);}catch(error){view.section.classList.add('error');view.status.textContent=error.message;}}));}finally{button.disabled=false;}});
-(async()=>{try{config=await jsonResponse(await fetch('/api/config'));select.replaceChildren();for(const model of config.models){const labels={'gpt-6-astra':'GPT-6 Astra · Most capable','gpt-5.6-sol':'GPT-5.6 Sol · Complex professional work','gpt-5.6-terra':'GPT-5.6 Terra · Balanced capability and cost','gpt-5.6-luna':'GPT-5.6 Luna · Lowest cost'};const option=new Option(labels[model]||model,model);option.selected=model===config.model;select.add(option);}select.disabled=false;button.disabled=false;document.querySelector('#privacy').textContent=(config.hosted?`Files are processed on this private server and removed after ${config.retention_hours} hours. `:'Files stay on this computer. ')+`Only extracted text is sent to OpenAI. Maximum ${config.max_upload_mb} MB per file.`;}catch(error){document.querySelector('#privacy').textContent=error.message;}})();
-</script></body></html>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Language Rewrite</title>
+  <style>
+    :root { color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif; color: #182019; background: #f3f1ec; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 40px 16px; }
+    main { max-width: 760px; margin: auto; background: #fff; border: 1px solid #ddd8cf; border-radius: 22px; padding: 36px; box-shadow: 0 18px 60px #1c221c14; }
+    .eyebrow { color: #4d6653; font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { font-size: clamp(32px, 7vw, 52px); line-height: 1.05; letter-spacing: -.035em; margin: 12px 0; }
+    h2 { font-size: 20px; margin: 0 0 8px; }
+    p, li { color: #59615a; line-height: 1.6; }
+    label { display: block; font-weight: 650; margin: 18px 0 8px; }
+    input, select, textarea { max-width: 100%; font: inherit; }
+    input[type="file"], select, textarea { width: 100%; padding: 12px; border: 1px solid #c9cfc8; border-radius: 8px; background: #fff; }
+    textarea { min-height: 180px; line-height: 1.55; resize: vertical; }
+    .drop { border: 1.5px dashed #98a79a; border-radius: 16px; padding: 24px; background: #f8faf7; margin: 20px 0; }
+    button { border: 0; border-radius: 12px; font: inherit; font-weight: 700; cursor: pointer; }
+    .primary { width: 100%; margin-top: 20px; padding: 14px; background: #183d24; color: #fff; }
+    button:disabled { opacity: .55; cursor: wait; }
+    .mode-switch { display: inline-flex; gap: 4px; padding: 4px; margin: 18px 0 8px; border-radius: 10px; background: #edf0ea; }
+    .mode { padding: 8px 14px; color: #4d594d; background: transparent; border-radius: 7px; }
+    .mode.active { background: #fff; color: #183d24; box-shadow: 0 1px 3px #1c221c20; }
+    .secondary { margin-top: 10px; padding: 10px 12px; color: #183d24; background: #e7efe7; }
+    small { display: block; color: #67716a; line-height: 1.5; margin-top: 10px; }
+    .progress, .result { margin-top: 16px; padding: 18px; background: #edf4ee; border-radius: 12px; overflow-wrap: anywhere; }
+    .progress { display: flex; align-items: flex-start; gap: 12px; }
+    .progress strong, .progress small { display: block; margin: 0; }
+    .spinner { flex: 0 0 auto; width: 18px; height: 18px; margin-top: 3px; border: 2px solid #a8b8a8; border-top-color: #183d24; border-radius: 50%; animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error { background: #fff0eb; }
+    a { color: #183d24; font-weight: 600; }
+    details { margin-top: 24px; border-top: 1px solid #e2e5de; padding-top: 18px; }
+    summary { cursor: pointer; font-weight: 600; }
+    #results { margin-top: 24px; }
+    #textResult label { margin-top: 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="eyebrow">AI Language Rewrite</div>
+    <h1>Rewrite the words.<br>Keep the document.</h1>
+    <p>Clearer writing using your editing guidelines. Upload PDFs, Word documents, or plain text. Changes that cannot be applied safely stay original and appear in the report.</p>
+
+    <div class="mode-switch" role="tablist" aria-label="Rewrite mode">
+      <button type="button" class="mode active" data-mode="files" role="tab" aria-selected="true">Files</button>
+      <button type="button" class="mode" data-mode="text" role="tab" aria-selected="false">Text</button>
+    </div>
+
+    <section id="fileMode" aria-labelledby="fileHeading">
+      <h2 id="fileHeading">Rewrite a file</h2>
+      <form id="fileForm">
+        <div class="drop">
+          <label for="file">Choose documents</label>
+          <input id="file" name="file" type="file" accept=".pdf,.docx,.txt" multiple required>
+          <small id="privacy">Loading storage settings…</small>
+        </div>
+        <label for="fileModel">Rewrite model</label>
+        <select id="fileModel" name="model" disabled><option>Loading models…</option></select>
+        <small>Model choice affects writing quality, processing time, and API cost.</small>
+        <button id="fileSubmit" class="primary" type="submit" disabled>Rewrite selected files</button>
+      </form>
+    </section>
+
+    <section id="textMode" aria-labelledby="textHeading" hidden>
+      <h2 id="textHeading">Rewrite text</h2>
+      <p>Paste text, rewrite it, then edit the result before you copy it.</p>
+      <form id="textForm">
+        <label for="textInput">Text to rewrite</label>
+        <textarea id="textInput" rows="12" maxlength="20000" placeholder="Paste a paragraph, email, message, or slide copy here…" required></textarea>
+        <small><span id="textCount">0</span> / 20,000 characters</small>
+        <label for="textModel">Rewrite model</label>
+        <select id="textModel" name="model" disabled><option>Loading models…</option></select>
+        <small>Model choice affects writing quality, processing time, and API cost.</small>
+        <button id="textSubmit" class="primary" type="submit" disabled>Rewrite text</button>
+      </form>
+
+      <div id="textProgress" class="progress" role="status" aria-live="polite" hidden>
+        <span class="spinner" aria-hidden="true"></span>
+        <div><strong>Rewriting your text…</strong><small>Applying the selected model and your editing guidelines. This can take a moment.</small></div>
+      </div>
+      <div id="textError" class="result error" role="alert" hidden></div>
+      <section id="textResult" class="result" aria-labelledby="rewrittenLabel" hidden>
+        <label id="rewrittenLabel" for="rewrittenText">Rewritten text</label>
+        <textarea id="rewrittenText" rows="12" aria-describedby="editableNote"></textarea>
+        <small id="editableNote">You can edit this result before copying it.</small>
+        <button id="copyText" class="secondary" type="button">Copy rewritten text</button>
+        <button id="resetText" class="secondary" type="button">Start over</button>
+      </section>
+    </section>
+
+    <div id="results" aria-live="polite"></div>
+    <details><summary>What stays the same</summary><ul>
+      <li><strong>PDF:</strong> page dimensions, images, and graphics. Wide paragraphs reflow within their original area. Unsupported fonts, overlaps, and text that does not fit are skipped. Scanned PDFs need a separate OCR workflow.</li>
+      <li><strong>Word (.docx):</strong> font and style settings, tables, links, and image files. Complex fields, review markup, text boxes, and fixed-height rows stay original. Word may repaginate after edits; review the result in Word.</li>
+      <li><strong>Plain text (.txt):</strong> UTF-8 encoding, blank lines, line endings, and indentation. There are no fonts or images in this format.</li>
+    </ul><p>The editing rules include guidance from <a href="https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing" target="_blank" rel="noopener noreferrer">Wikipedia’s Signs of AI writing</a>. These are writing-quality guidelines, not an AI-detector guarantee. Legacy .doc files and other formats are not supported yet.</p></details>
+  </main>
+
+  <script>
+    const fileMode = document.querySelector('#fileMode');
+    const textMode = document.querySelector('#textMode');
+    const fileForm = document.querySelector('#fileForm');
+    const textForm = document.querySelector('#textForm');
+    const fileInput = document.querySelector('#file');
+    const fileModel = document.querySelector('#fileModel');
+    const textModel = document.querySelector('#textModel');
+    const fileSubmit = document.querySelector('#fileSubmit');
+    const textSubmit = document.querySelector('#textSubmit');
+    const textInput = document.querySelector('#textInput');
+    const textCount = document.querySelector('#textCount');
+    const textProgress = document.querySelector('#textProgress');
+    const textError = document.querySelector('#textError');
+    const textResult = document.querySelector('#textResult');
+    const rewrittenText = document.querySelector('#rewrittenText');
+    const results = document.querySelector('#results');
+    let config;
+
+    function updateTextSubmit() {
+      textSubmit.disabled = !textInput.value.trim() || textModel.disabled;
+    }
+
+    function setMode(name) {
+      const isText = name === 'text';
+      fileMode.hidden = isText;
+      textMode.hidden = !isText;
+      document.querySelectorAll('.mode').forEach((mode) => {
+        const active = mode.dataset.mode === name;
+        mode.classList.toggle('active', active);
+        mode.setAttribute('aria-selected', active);
+      });
+      if (isText) textInput.focus();
+    }
+
+    document.querySelectorAll('.mode').forEach((mode) => mode.addEventListener('click', () => setMode(mode.dataset.mode)));
+    textInput.addEventListener('input', () => {
+      textCount.textContent = textInput.value.length;
+      updateTextSubmit();
+    });
+
+    function panel(name) {
+      const section = document.createElement('section');
+      section.className = 'result';
+      const title = document.createElement('h2');
+      title.textContent = name;
+      const status = document.createElement('div');
+      status.textContent = 'Uploading…';
+      section.append(title, status);
+      results.append(section);
+      return { section, status };
+    }
+
+    async function jsonResponse(response) {
+      let data;
+      try { data = await response.json(); }
+      catch { throw new Error('The server did not return a valid response. Please retry.'); }
+      if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Request failed.');
+      return data;
+    }
+
+    async function poll(url, view) {
+      let errors = 0;
+      for (;;) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        let data;
+        try {
+          data = await jsonResponse(await fetch(url));
+          errors = 0;
+        } catch (error) {
+          if (++errors >= 3) throw new Error(`Connection lost. The rewrite may still be running. Keep this job URL to check it: ${url}`);
+          view.status.textContent = 'Reconnecting…';
+          continue;
+        }
+        if (data.status === 'failed') throw new Error(data.error);
+        if (data.status === 'complete') {
+          const rewritten = data.summary.rewritten || 0;
+          const skipped = Object.entries(data.summary).filter(([key]) => key.startsWith('skipped_')).reduce((sum, [, value]) => sum + value, 0);
+          view.status.textContent = `${rewritten} blocks rewritten; ${skipped} kept original for preservation. `;
+          for (const [label, href] of [['Download document', data.download_url], ['View report', data.report_url]]) {
+            const link = document.createElement('a');
+            link.textContent = label;
+            link.href = href;
+            view.status.append(link, document.createTextNode('  '));
+          }
+          if (data.layout_note) {
+            const note = document.createElement('small');
+            note.textContent = data.layout_note;
+            view.section.append(note);
+          }
+          return;
+        }
+        view.status.textContent = data.status === 'queued'
+          ? 'Queued. Waiting for an available worker…'
+          : 'Rewriting and checking the document. This can take several minutes…';
+      }
+    }
+
+    fileForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const files = [...fileInput.files];
+      if (!files.length) return;
+      fileSubmit.disabled = true;
+      try {
+        await Promise.all(files.map(async (file) => {
+          const view = panel(file.name);
+          try {
+            if (file.size > config.max_upload_mb * 1024 * 1024) throw new Error(`File exceeds ${config.max_upload_mb} MB.`);
+            const body = new FormData();
+            body.append('file', file);
+            body.append('model', fileModel.value);
+            const job = await jsonResponse(await fetch('/api/rewrite', { method: 'POST', body }));
+            await poll(job.status_url, view);
+          } catch (error) {
+            view.section.classList.add('error');
+            view.status.textContent = error.message;
+          }
+        }));
+      } finally {
+        fileSubmit.disabled = false;
+      }
+    });
+
+    textForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!textInput.value.trim()) return;
+      textSubmit.disabled = true;
+      textInput.disabled = true;
+      textModel.disabled = true;
+      textResult.hidden = true;
+      textError.hidden = true;
+      textProgress.hidden = false;
+      try {
+        const body = new FormData();
+        body.append('text', textInput.value);
+        body.append('model', textModel.value);
+        const data = await jsonResponse(await fetch('/api/rewrite-text', { method: 'POST', body }));
+        rewrittenText.value = data.rewritten;
+        textResult.hidden = false;
+      } catch (error) {
+        textError.textContent = error.message;
+        textError.hidden = false;
+      } finally {
+        textProgress.hidden = true;
+        textInput.disabled = false;
+        textModel.disabled = false;
+        updateTextSubmit();
+      }
+    });
+
+    document.querySelector('#copyText').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(rewrittenText.value);
+        document.querySelector('#copyText').textContent = 'Copied';
+        setTimeout(() => { document.querySelector('#copyText').textContent = 'Copy rewritten text'; }, 1500);
+      } catch {
+        textError.textContent = 'Could not copy automatically. Select the text and copy it manually.';
+        textError.hidden = false;
+      }
+    });
+
+    document.querySelector('#resetText').addEventListener('click', () => {
+      textInput.value = '';
+      rewrittenText.value = '';
+      textCount.textContent = '0';
+      textResult.hidden = true;
+      textError.hidden = true;
+      updateTextSubmit();
+      textInput.focus();
+    });
+
+    function addModels(select, models, selectedModel) {
+      select.replaceChildren();
+      const labels = {
+        'gpt-6-astra': 'GPT-6 Astra · Most capable',
+        'gpt-5.6-sol': 'GPT-5.6 Sol · Complex professional work',
+        'gpt-5.6-terra': 'GPT-5.6 Terra · Balanced capability and cost',
+        'gpt-5.6-luna': 'GPT-5.6 Luna · Lowest cost'
+      };
+      for (const model of models) {
+        const option = new Option(labels[model] || model, model);
+        option.selected = model === selectedModel;
+        select.add(option);
+      }
+      select.disabled = false;
+    }
+
+    (async () => {
+      try {
+        config = await jsonResponse(await fetch('/api/config'));
+        addModels(fileModel, config.models, config.model);
+        addModels(textModel, config.models, config.model);
+        fileSubmit.disabled = false;
+        updateTextSubmit();
+        document.querySelector('#privacy').textContent = (config.hosted
+          ? `Files are processed on this private server and removed after ${config.retention_hours} hours. `
+          : 'Files stay on this computer. ') + `Only extracted text is sent to OpenAI. Maximum ${config.max_upload_mb} MB per file.`;
+      } catch (error) {
+        document.querySelector('#privacy').textContent = error.message;
+      }
+    })();
+  </script>
+</body>
+</html>

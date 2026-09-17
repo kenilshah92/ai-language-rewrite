@@ -60,6 +60,7 @@ No frontend build command is required. Configure a real OpenAI key only for live
 ## Change and handoff workflow
 
 - Inspect relevant code/tests before editing. Distinguish intended guarantees from actual checks.
+- Batch related inspection, editing, test and verification commands into as few approved executions as practical. Keep genuinely destructive or independently authorized external actions separate.
 - Run pytest after application changes. Run the smoke command above after PDF extraction/rendering changes (PYTHONPATH is required when invoking the script directly).
 - For layout changes, inspect representative source/output pages and verify non-text preservation; tests alone do not prove visual fidelity.
 - Do not make paid live API calls for documentation-only validation. Use targeted tests for actual behavior changes.
