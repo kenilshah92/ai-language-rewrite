@@ -45,8 +45,7 @@ Keep keys/passwords out of Git, chat handoffs and logs. `.env.example` is a plac
 | Variable | Default / behavior |
 | --- | --- |
 | `OPENAI_API_KEY` | No application default; read by the SDK when a job creates a client |
-| `OPENAI_MODEL` | `gpt-5.6-luna`; model access must exist on the API account |
-| `ALLOWED_MODELS` | `gpt-5.6-luna,gpt-5.6-terra,gpt-5.6-sol,gpt-6-astra`; default model is also allowed even if omitted here |
+| `OPENAI_MODEL` | `gpt-5.6-luna`; only Luna, Terra, or Sol are accepted. A stale or unsupported value falls back to Luna. |
 | `APP_HOSTED` | `false` locally; Docker sets `true`; only case-insensitive `true` enables hosted mode |
 | `APP_USERNAME` | Empty default; required in hosted mode |
 | `APP_PASSWORD` | Empty default; hosted startup requires at least 16 characters |

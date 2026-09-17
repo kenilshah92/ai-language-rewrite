@@ -4,7 +4,7 @@
 
 The interface now provides a compact Files/Text mode switch. Each mode owns one clear primary action: **Rewrite selected files** or **Rewrite text**. Text mode accepts up to 20,000 characters, sends the selected model to `POST /api/rewrite-text`, shows an in-progress spinner and status while the request runs, shows errors in context, and returns an editable result with copy and reset controls. File processing retains its existing per-file upload, queue, processing and completion status panels.
 The progress and result panels explicitly apply `display: none` while their `hidden` attribute is present, preventing a visible working state before a request or after it completes.
-The model picker is shared by both modes and preserves its current value across mode switches. GPT-5.6 Luna is the configured default and is listed first for routine cost-sensitive work, followed by Terra for higher-fidelity rewrites, Sol for complex professional work, and Astra for exceptional cases.
+The model picker is shared by both modes and preserves its current value across mode switches. GPT-5.6 Luna is the configured default and is listed first for routine cost-sensitive work, followed by Terra for higher-fidelity rewrites and Sol for complex professional work. The app rejects Astra and every other model ID, including stale hosted secret-file values.
 
 Validation: `python -m pytest -q -p no:cacheprovider` — **27 passed**. `PYTHONPATH=. python scripts/smoke_test.py` is run as part of this release check. This commit is intended for Render auto-deploy; a fresh hosted text rewrite remains a manual acceptance check after the deployment reaches Live.
 
