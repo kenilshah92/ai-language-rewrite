@@ -28,6 +28,7 @@
     small { display: block; color: #67716a; line-height: 1.5; margin-top: 10px; }
     .progress, .result { margin-top: 16px; padding: 18px; background: #edf4ee; border-radius: 12px; overflow-wrap: anywhere; }
     .progress { display: flex; align-items: flex-start; gap: 12px; }
+    .progress[hidden], .result[hidden] { display: none; }
     .progress strong, .progress small { display: block; margin: 0; }
     .spinner { flex: 0 0 auto; width: 18px; height: 18px; margin-top: 3px; border: 2px solid #a8b8a8; border-top-color: #183d24; border-radius: 50%; animation: spin .8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }

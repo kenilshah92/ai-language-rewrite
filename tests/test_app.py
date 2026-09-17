@@ -17,6 +17,7 @@ def test_home_page_loads():
     assert response.status_code == 200
     assert 'Keep the document.' in response.text
     assert '.docx' in response.text
+    assert '.progress[hidden], .result[hidden] { display: none; }' in response.text
 
 
 def test_private_routes_require_authentication(monkeypatch):
